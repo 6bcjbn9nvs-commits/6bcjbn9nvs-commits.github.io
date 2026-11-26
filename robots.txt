@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://6bcjbn9nvs-commits.github.io/nexora-quote-desk/sitemap.xml
