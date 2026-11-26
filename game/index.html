@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#090d1a">
+<title>NEON DROP : MERGE | Nexora Arcade</title>
+<meta name="description" content="One-tap physics merge arcade game. Drop, merge glowing orbs, trigger Fever combos, and reach the Quantum Core.">
+<style>
+  :root {
+    --bg-deep: #070a14;
+    --bg-panel: rgba(17, 24, 44, 0.78);
+    --border-glass: rgba(148, 163, 184, 0.18);
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --accent-cyan: #22d3ee;
+    --accent-pink: #f472b6;
+    --accent-gold: #fbbf24;
+    --accent-green: #34d399;
+    --danger: #fb7185;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: radial-gradient(circle at 50% 10%, #162040 0%, #070a14 70%);
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+    touch-action: none;
+  }
+  .app-shell {
+    width: 100%; max-width: 460px; height: 100dvh;
+    margin: 0 auto;
+    display: flex; flex-direction: column;
+    padding: max(10px, env(safe-area-inset-top)) 12px max(10px, env(safe-area-inset-bottom));
+    gap: 8px;
+    position: relative;
+  }
+  /* Top HUD */
+  .hud-top {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    flex-shrink: 0;
+  }
+  .brand-pill {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--bg-panel); border: 1px solid var(--border-glass);
+    padding: 6px 10px; border-radius: 14px; backdrop-filter: blur(12px);
+  }
+  .brand-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-pink));
+    box-shadow: 0 0 10px var(--accent-cyan);
+  }
+  .brand-title { font-size: 13px; font-weight: 800; letter-spacing: 0.4px; }
+  .hud-actions { display: flex; align-items: center; gap: 6px; }
+  .icon-btn {
+    background: var(--bg-panel); border: 1px solid var(--border-glass);
+    color: var(--text-main); border-radius: 12px;
+    height: 34px; padding: 0 10px; font-size: 12px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+    cursor: pointer; backdrop-filter: blur(12px); transition: transform 0.12s, border-color 0.2s;
+  }
+  .icon-btn:active { transform: scale(0.94); }
+  .coin-pill {
+    background: rgba(251, 191, 36, 0.14); border: 1px solid rgba(251, 191, 36, 0.35);
+    color: #fde68a; border-radius: 12px; height: 34px; padding: 0 10px;
+    font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px;
+    cursor: pointer;
+  }
+
+  /* Score & Next Row */
+  .hud-stats {
+    display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; flex-shrink: 0;
+  }
+  .stat-card {
+    background: var(--bg-panel); border: 1px solid var(--border-glass);
+    border-radius: 14px; padding: 7px 11px; backdrop-filter: blur(12px);
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .stat-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; }
+  .stat-val { font-size: 20px; font-weight: 900; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  .stat-val.best { color: var(--accent-cyan); font-size: 17px; }
+  .next-card {
+    background: var(--bg-panel); border: 1px solid var(--border-glass);
+    border-radius: 14px; padding: 5px 12px; backdrop-filter: blur(12px);
+    display: flex; align-items: center; gap: 8px;
+  }
+  #nextCanvas { width: 34px; height: 34px; display: block; }
+
+  /* Fever & Evolution Bar */
+  .fever-row {
+    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  }
+  .fever-bar-wrap {
+    flex: 1; height: 8px; background: rgba(15, 23, 42, 0.85);
+    border-radius: 999px; border: 1px solid rgba(148,163,184,0.16); overflow: hidden;
+    position: relative;
+  }
+  .fever-bar-fill {
+    height: 100%; width: 0%; border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent-cyan), var(--accent-pink), var(--accent-gold));
+    transition: width 0.2s ease-out;
+  }
+  .fever-badge {
+    font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px;
+    background: rgba(34, 211, 238, 0.14); color: var(--accent-cyan);
+    border: 1px solid rgba(34, 211, 238, 0.3); white-space: nowrap;
+  }
+  .fever-badge.active {
+    background: linear-gradient(90deg, #f472b6, #fbbf24); color: #090d1a; border-color: transparent;
+    animation: pulseFever 0.6s infinite alternate;
+  }
+  @keyframes pulseFever { from { transform: scale(1); } to { transform: scale(1.06); } }
+
+  /* Canvas Arena */
+  .arena-wrap {
+    flex: 1; min-height: 0; position: relative;
+    border-radius: 20px; overflow: hidden;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.62) 0%, rgba(9, 13, 26, 0.92) 100%);
+    border: 1.5px solid rgba(148, 163, 184, 0.22);
+    box-shadow: inset 0 0 40px rgba(34, 211, 238, 0.06), 0 14px 36px rgba(0, 0, 0, 0.45);
+  }
+  #gameCanvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
+
+  .mode-banner {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    background: rgba(251, 191, 36, 0.95); color: #090d1a;
+    padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 800;
+    box-shadow: 0 6px 20px rgba(251, 191, 36, 0.4);
+    display: none; align-items: center; gap: 6px; z-index: 5; white-space: nowrap;
+  }
+  .mode-banner.show { display: inline-flex; }
+
+  /* Bottom Powerups */
+  .powerups {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; flex-shrink: 0;
+  }
+  .pwr-btn {
+    background: var(--bg-panel); border: 1px solid var(--border-glass);
+    color: var(--text-main); border-radius: 14px; padding: 8px 6px;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    cursor: pointer; backdrop-filter: blur(12px); position: relative;
+    transition: transform 0.12s, border-color 0.2s, background 0.2s;
+  }
+  .pwr-btn:active { transform: scale(0.95); }
+  .pwr-btn.selected { border-color: var(--accent-gold); background: rgba(251, 191, 36, 0.16); }
+  .pwr-top { font-size: 13px; font-weight: 800; display: flex; align-items: center; gap: 4px; }
+  .pwr-sub { font-size: 10px; font-weight: 700; color: var(--accent-cyan); }
+  .ad-tag {
+    font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 6px;
+    background: rgba(52, 211, 153, 0.18); color: var(--accent-green); border: 1px solid rgba(52, 211, 153, 0.35);
+  }
+
+  /* Evolution Strip */
+  .evo-strip {
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(148,163,184,0.12);
+    border-radius: 12px; padding: 5px 10px; flex-shrink: 0;
+  }
+  .evo-dot {
+    width: 16px; height: 16px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px; font-weight: 900; color: #090d1a;
+    box-shadow: 0 0 8px rgba(255,255,255,0.2);
+  }
+  .evo-arrow { font-size: 9px; color: var(--text-muted); }
+
+  /* Modals */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(4, 7, 16, 0.82);
+    backdrop-filter: blur(10px);
+    display: none; align-items: center; justify-content: center; padding: 18px; z-index: 30;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal-card {
+    width: 100%; max-width: 380px;
+    background: linear-gradient(180deg, #131c36 0%, #0b1022 100%);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 24px; padding: 22px 18px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.65);
+    text-align: center;
+  }
+  .modal-title { font-size: 22px; font-weight: 900; margin: 0 0 6px; }
+  .modal-sub { font-size: 13px; color: var(--text-muted); margin: 0 0 16px; line-height: 1.45; }
+  .score-box {
+    background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(148,163,184,0.18);
+    border-radius: 16px; padding: 14px; margin-bottom: 14px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  }
+  .btn-primary {
+    width: 100%; border: none; border-radius: 14px; padding: 13px 16px;
+    font-size: 15px; font-weight: 800; cursor: pointer;
+    background: linear-gradient(135deg, var(--accent-cyan), #3b82f6);
+    color: #06101f; box-shadow: 0 8px 24px rgba(34, 211, 238, 0.35);
+    margin-bottom: 8px;
+  }
+  .btn-reward {
+    width: 100%; border: none; border-radius: 14px; padding: 13px 16px;
+    font-size: 15px; font-weight: 800; cursor: pointer;
+    background: linear-gradient(135deg, var(--accent-gold), #f97316);
+    color: #1a0d02; box-shadow: 0 8px 24px rgba(251, 191, 36, 0.35);
+    margin-bottom: 8px;
+  }
+  .btn-ghost {
+    width: 100%; background: rgba(255,255,255,0.06); border: 1px solid var(--border-glass);
+    color: var(--text-main); border-radius: 14px; padding: 11px 16px;
+    font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  .countdown-ring {
+    width: 64px; height: 64px; border-radius: 50%; margin: 0 auto 12px;
+    border: 4px solid rgba(251, 191, 36, 0.25); border-top-color: var(--accent-gold);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; font-weight: 900; color: var(--accent-gold);
+  }
+  .skin-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; text-align: left; }
+  .skin-item {
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-glass);
+    border-radius: 14px; padding: 10px 12px;
+  }
+  .skin-item.active { border-color: var(--accent-cyan); background: rgba(34, 211, 238, 0.1); }
+  .skin-btn {
+    border: none; border-radius: 10px; padding: 7px 12px; font-size: 12px; font-weight: 800; cursor: pointer;
+    background: var(--accent-cyan); color: #06101f;
+  }
+  .skin-btn.locked { background: rgba(251, 191, 36, 0.2); color: #fde68a; border: 1px solid rgba(251, 191, 36, 0.4); }
+  .ad-sim-progress {
+    width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 999px; overflow: hidden; margin: 14px 0;
+  }
+  .ad-sim-fill { height: 100%; width: 0%; background: var(--accent-green); transition: width 0.1s linear; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <!-- Top HUD -->
+  <div class="hud-top">
+    <div class="brand-pill">
+      <div class="brand-dot"></div>
+      <div class="brand-title">NEON DROP</div>
+    </div>
+    <div class="hud-actions">
+      <button class="coin-pill" id="btnShop" title="Themes &amp; Shop">🪙 <span id="coinDisplay">0</span></button>
+      <button class="icon-btn" id="btnSound">🔊</button>
+      <button class="icon-btn" id="btnLang">KO</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="hud-stats">
+    <div class="stat-card">
+      <span class="stat-label" data-i18n="score">점수</span>
+      <span class="stat-val" id="scoreDisplay">0</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label" data-i18n="best">최고 기록</span>
+      <span class="stat-val best" id="bestDisplay">0</span>
+    </div>
+    <div class="next-card">
+      <div>
+        <div class="stat-label" data-i18n="next">다음</div>
+      </div>
+      <canvas id="nextCanvas" width="68" height="68"></canvas>
+    </div>
+  </div>
+
+  <!-- Fever Bar -->
+  <div class="fever-row">
+    <div class="fever-bar-wrap"><div class="fever-bar-fill" id="feverFill"></div></div>
+    <div class="fever-badge" id="feverBadge">COMBO x1</div>
+  </div>
+
+  <!-- Game Arena -->
+  <div class="arena-wrap" id="arenaWrap">
+    <div class="mode-banner" id="modeBanner"></div>
+    <canvas id="gameCanvas"></canvas>
+  </div>
+
+  <!-- Evolution Strip -->
+  <div class="evo-strip" id="evoStrip"></div>
+
+  <!-- Powerups (Monetization + Retention) -->
+  <div class="powerups">
+    <button class="pwr-btn" id="btnHammer">
+      <div class="pwr-top">🔨 <span data-i18n="hammer">제거</span></div>
+      <div class="pwr-sub"><span id="hammerSub">🪙 60</span> <span class="ad-tag">AD</span></div>
+    </button>
+    <button class="pwr-btn" id="btnUpgrade">
+      <div class="pwr-top">⚡ <span data-i18n="upgrade">진화</span></div>
+      <div class="pwr-sub"><span id="upgradeSub">🪙 90</span> <span class="ad-tag">AD</span></div>
+    </button>
+    <button class="pwr-btn" id="btnShake">
+      <div class="pwr-top">🌀 <span data-i18n="shake">흔들기</span></div>
+      <div class="pwr-sub" data-i18n="freeOnce">판당 1회 무료</div>
+    </button>
+  </div>
+</div>
+
+<!-- Revive Modal (5s Countdown - CrazyGames/Poki Best Practice) -->
+<div class="modal-backdrop" id="reviveModal">
+  <div class="modal-card">
+    <div class="countdown-ring" id="reviveTimer">5</div>
+    <h2 class="modal-title" data-i18n="reviveTitle">위기 탈출 찬스!</h2>
+    <p class="modal-sub" data-i18n="reviveSub">광고 1편 보고 위쪽 코어 3개를 정리한 뒤 바로 이어서 플레이하세요.</p>
+    <button class="btn-reward" id="btnWatchRevive">🎬 <span data-i18n="reviveBtn">광고 보고 이어하기</span></button>
+    <button class="btn-ghost" id="btnSkipRevive" data-i18n="skipBtn">그냥 결과 보기</button>
+  </div>
+</div>
+
+<!-- Game Over Modal -->
+<div class="modal-backdrop" id="gameOverModal">
+  <div class="modal-card">
+    <h2 class="modal-title" data-i18n="gameOverTitle">게임 종료</h2>
+    <p class="modal-sub" id="gameOverTierText"></p>
+    <div class="score-box">
+      <div>
+        <div class="stat-label" data-i18n="finalScore">이번 점수</div>
+        <div class="stat-val" id="finalScoreVal">0</div>
+      </div>
+      <div>
+        <div class="stat-label" data-i18n="earnedCoins">획득 코인</div>
+        <div class="stat-val" style="color:var(--accent-gold)">+<span id="earnedCoinsVal">0</span></div>
+      </div>
+    </div>
+    <button class="btn-reward" id="btnDoubleCoins">🎬 <span data-i18n="doubleCoins">광고 보고 코인 2배 받기</span></button>
+    <button class="btn-primary" id="btnRestart" data-i18n="playAgain">다시 하기 (1초 시작)</button>
+    <button class="btn-ghost" id="btnShare" data-i18n="shareScore">기록 공유하기</button>
+  </div>
+</div>
+
+<!-- Shop / Skins Modal -->
+<div class="modal-backdrop" id="shopModal">
+  <div class="modal-card">
+    <h2 class="modal-title" data-i18n="shopTitle">테마 &amp; 수익 브릿지</h2>
+    <p class="modal-sub" data-i18n="shopSub">모은 코인으로 코어 스타일을 바꿔보세요.</p>
+    <div class="skin-list" id="skinList"></div>
+    <button class="btn-reward" id="btnFreeCoins">🎬 <span data-i18n="freeCoinsBtn">광고 보고 +100 코인</span></button>
+    <button class="btn-ghost" id="btnCloseShop" data-i18n="closeBtn">닫기</button>
+  </div>
+</div>
+
+<!-- Rewarded Ad Simulation Overlay (Replaced 1:1 by Poki/CrazyGames/AdSense SDK in production) -->
+<div class="modal-backdrop" id="adModal">
+  <div class="modal-card">
+    <h2 class="modal-title" data-i18n="adPlaying">보상형 광고 재생 중…</h2>
+    <p class="modal-sub" data-i18n="adSub">실제 서비스 시 Poki / CrazyGames / AdSense 리워드 SDK가 이 자리에 연결됩니다.</p>
+    <div class="ad-sim-progress"><div class="ad-sim-fill" id="adSimFill"></div></div>
+    <div class="stat-label" id="adCountdownText">3s</div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // === 1. Production Ad / Analytics Bridge (Ready for Poki / CrazyGames / AdSense H5) ===
+  window.NexoraAdBridge = {
+    provider: 'simulation', // 'poki' | 'crazygames' | 'adsense' | 'simulation'
+    stats: JSON.parse(localStorage.getItem('nexora_ad_stats') || '{"rewardedWatched":0,"sessions":0}'),
+    showRewarded(placement, onSuccess) {
+      this.stats.rewardedWatched++;
+      localStorage.setItem('nexora_ad_stats', JSON.stringify(this.stats));
+      // Simulation: 2.4s smooth reward bar
+      const modal = document.getElementById('adModal');
+      const fill = document.getElementById('adSimFill');
+      const txt = document.getElementById('adCountdownText');
+      modal.classList.add('open');
+      let elapsed = 0;
+      const dur = 2200;
+      const start = performance.now();
+      const tick = (now) => {
+        elapsed = now - start;
+        const p = Math.min(1, elapsed / dur);
+        fill.style.width = (p * 100) + '%';
+        txt.textContent = Math.max(0, Math.ceil((dur - elapsed) / 1000)) + 's';
+        if (p < 1) requestAnimationFrame(tick);
+        else {
+          modal.classList.remove('open');
+          onSuccess();
+        }
+      };
+      requestAnimationFrame(tick);
+    }
+  };
+  window.NexoraAdBridge.stats.sessions++;
+  localStorage.setItem('nexora_ad_stats', JSON.stringify(window.NexoraAdBridge.stats));
+
+  // === 2. Localization (KO / EN) ===
+  const I18N = {
+    ko: {
+      score: '점수', best: '최고 기록', next: '다음',
+      hammer: '제거', upgrade: '진화', shake: '흔들기', freeOnce: '판당 1회 무료',
+      reviveTitle: '위기 탈출 찬스!', reviveSub: '광고 1편 보고 위쪽 코어 3개를 정리한 뒤 바로 이어서 플레이하세요.',
+      reviveBtn: '광고 보고 이어하기', skipBtn: '그냥 결과 보기',
+      gameOverTitle: '게임 종료', finalScore: '이번 점수', earnedCoins: '획득 코인',
+      doubleCoins: '광고 보고 코인 2배 받기', playAgain: '다시 하기 (1초 시작)', shareScore: '기록 공유하기',
+      shopTitle: '테마 샵', shopSub: '모은 코인으로 코어 스타일을 바꿔보세요.',
+      freeCoinsBtn: '광고 보고 +100 코인', closeBtn: '닫기',
+      adPlaying: '보상형 광고 재생 중…', adSub: '실전 배포 시 Poki · CrazyGames · AdSense 리워드 광고가 연결됩니다.',
+      pickHammer: '🔨 제거할 코어를 터치하세요 (취소: 다시 누르기)',
+      pickUpgrade: '⚡ 진화시킬 코어를 터치하세요 (취소: 다시 누르기)',
+      used: '사용 완료', equipped: '적용 중', equip: '적용하기', unlock: '해금',
+      copied: '기록이 복사되었습니다! 친구에게 공유해 보세요.',
+      tierReached: (name) => `최고 도달 코어: ${name}`
+    },
+    en: {
+      score: 'SCORE', best: 'BEST', next: 'NEXT',
+      hammer: 'Remove', upgrade: 'Evolve', shake: 'Shake', freeOnce: '1 Free / Run',
+      reviveTitle: 'Second Chance!', reviveSub: 'Watch 1 ad to clear top 3 cores and keep your combo alive.',
+      reviveBtn: 'Watch Ad to Revive', skipBtn: 'See Results',
+      gameOverTitle: 'Game Over', finalScore: 'Score', earnedCoins: 'Coins',
+      doubleCoins: '2x Coins (Watch Ad)', playAgain: 'Play Again', shareScore: 'Share Score',
+      shopTitle: 'Theme Shop', shopSub: 'Unlock glowing core themes with coins.',
+      freeCoinsBtn: 'Watch Ad for +100 Coins', closeBtn: 'Close',
+      adPlaying: 'Playing Rewarded Ad…', adSub: 'Connects 1:1 to Poki / CrazyGames / AdSense H5 SDK in production.',
+      pickHammer: '🔨 Tap any core to remove (tap button to cancel)',
+      pickUpgrade: '⚡ Tap any core to evolve (tap button to cancel)',
+      used: 'Used', equipped: 'Equipped', equip: 'Equip', unlock: 'Unlock',
+      copied: 'Score copied! Challenge a friend.',
+      tierReached: (name) => `Highest Core: ${name}`
+    }
+  };
+  let lang = localStorage.getItem('nexora_game_lang') || (navigator.language.startsWith('ko') ? 'ko' : 'en');
+  function applyLang() {
+    document.getElementById('btnLang').textContent = lang.toUpperCase();
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const k = el.getAttribute('data-i18n');
+      if (I18N[lang][k]) el.textContent = I18N[lang][k];
+    });
+  }
+
+  // === 3. Skins & Core Tiers ===
+  const SKINS = [
+    { id: 'neon', nameKo: '네온 플라즈마', nameEn: 'Neon Plasma', cost: 0,
+      colors: ['#22d3ee','#38bdf8','#818cf8','#c084fc','#f472b6','#fb7185','#fb923c','#fbbf24','#a3e635','#34d399','#ffffff'] },
+    { id: 'jelly', nameKo: '파스텔 젤리', nameEn: 'Pastel Jelly', cost: 150,
+      colors: ['#a5f3fc','#bae6fd','#ddd6fe','#f5d0fe','#fbcfe8','#fecdd3','#fed7aa','#fef08a','#d9f99d','#a7f3d0','#ffffff'] },
+    { id: 'cosmic', nameKo: '코스믹 플래닛', nameEn: 'Cosmic Planet', cost: 300,
+      colors: ['#64748b','#0ea5e9','#6366f1','#a855f7','#ec4899','#ef4444','#f97316','#eab308','#10b981','#06b6d4','#fde047'] }
+  ];
+  const TIERS = [
+    { r: 15, val: 2, score: 2, name: '2' },
+    { r: 20, val: 4, score: 4, name: '4' },
+    { r: 26, val: 8, score: 8, name: '8' },
+    { r: 33, val: 16, score: 16, name: '16' },
+    { r: 41, val: 32, score: 32, name: '32' },
+    { r: 50, val: 64, score: 64, name: '64' },
+    { r: 60, val: 128, score: 128, name: '128' },
+    { r: 71, val: 256, score: 256, name: '256' },
+    { r: 83, val: 512, score: 512, name: '512' },
+    { r: 96, val: 1024, score: 1024, name: '1K' },
+    { r: 110, val: 2048, score: 2048, name: '2K' }
+  ];
+
+  let coins = parseInt(localStorage.getItem('nexora_coins') || '120', 10);
+  let bestScore = parseInt(localStorage.getItem('nexora_best') || '0', 10);
+  let ownedSkins = JSON.parse(localStorage.getItem('nexora_skins') || '["neon"]');
+  let activeSkinId = localStorage.getItem('nexora_active_skin') || 'neon';
+  let soundOn = localStorage.getItem('nexora_sound') !== '0';
+
+  function getPalette() {
+    return (SKINS.find(s => s.id === activeSkinId) || SKINS[0]).colors;
+  }
+
+  // === 4. Procedural Web Audio Synthesizer (Zero External Files) ===
+  let audioCtx = null;
+  const SCALE = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25, 587.33, 659.25, 783.99];
+  function ensureAudio() {
+    if (!soundOn) return;
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+  function playDropSound() {
+    if (!soundOn || !audioCtx) return;
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(340, audioCtx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(160, audioCtx.currentTime + 0.08);
+    g.gain.setValueAtTime(0.12, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.09);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + 0.09);
+  }
+  function playMergeSound(tier, comboCount) {
+    if (!soundOn || !audioCtx) return;
+    const freq = SCALE[Math.min(SCALE.length - 1, tier)] * (1 + Math.min(0.4, comboCount * 0.05));
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = tier >= 6 ? 'triangle' : 'sine';
+    o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(freq * 1.25, audioCtx.currentTime + 0.14);
+    g.gain.setValueAtTime(0.18, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.18);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + 0.18);
+  }
+
+  // === 5. Physics & Game State ===
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const nextCanvas = document.getElementById('nextCanvas');
+  const nctx = nextCanvas.getContext('2d');
+
+  let W = 380, H = 520, DPR = Math.min(window.devicePixelRatio || 1, 2);
+  let DANGER_Y = 78;
+
+  let balls = [];
+  let particles = [];
+  let floatTexts = [];
+  let nextId = 1;
+  let score = 0;
+  let maxTierReached = 0;
+  let currentTier = 0;
+  let nextTier = 1;
+  let aimX = 190;
+  let isAiming = false;
+  let dropCooldown = 0;
+  let combo = 0;
+  let comboTimer = 0;
+  let fever = 0;
+  let feverActive = false;
+  let shakeTime = 0;
+  let dangerTimer = 0;
+  let gameOver = false;
+  let revivedThisRun = false;
+  let shakeUsedThisRun = false;
+  let activeTool = null; // null | 'hammer' | 'upgrade'
+  let reviveCountdownInterval = null;
+  let doubleClaimed = false;
+
+  function resize() {
+    const rect = document.getElementById('arenaWrap').getBoundingClientRect();
+    W = Math.max(280, rect.width);
+    H = Math.max(360, rect.height);
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = W * DPR;
+    canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    DANGER_Y = Math.round(H * 0.14);
+    aimX = Math.max(30, Math.min(W - 30, aimX));
+  }
+  window.addEventListener('resize', resize);
+
+  function renderEvoStrip() {
+    const strip = document.getElementById('evoStrip');
+    const pal = getPalette();
+    strip.innerHTML = '';
+    TIERS.slice(0, 9).forEach((t, i) => {
+      if (i > 0) {
+        const arr = document.createElement('span');
+        arr.className = 'evo-arrow';
+        arr.textContent = '›';
+        strip.appendChild(arr);
+      }
+      const d = document.createElement('div');
+      d.className = 'evo-dot';
+      d.style.background = pal[i];
+      d.textContent = t.name;
+      strip.appendChild(d);
+    });
+  }
+
+  function drawNext() {
+    nctx.clearRect(0, 0, 68, 68);
+    const pal = getPalette();
+    const c = pal[nextTier];
+    const r = Math.min(24, 11 + nextTier * 2.5);
+    drawOrb(nctx, 34, 34, r, c, TIERS[nextTier].name, 1);
+  }
+
+  function drawOrb(g, x, y, r, color, label, scale = 1) {
+    g.save();
+    g.translate(x, y);
+    g.scale(scale, scale);
+
+    // Outer glow
+    g.shadowColor = color;
+    g.shadowBlur = 14;
+    const grad = g.createRadialGradient(-r * 0.3, -r * 0.32, r * 0.12, 0, 0, r);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.28, color);
+    grad.addColorStop(1, shadeColor(color, -38));
+    g.fillStyle = grad;
+    g.beginPath();
+    g.arc(0, 0, r, 0, Math.PI * 2);
+    g.fill();
+
+    // Specular highlight
+    g.shadowBlur = 0;
+    g.fillStyle = 'rgba(255,255,255,0.42)';
+    g.beginPath();
+    g.ellipse(-r * 0.28, -r * 0.34, r * 0.28, r * 0.14, -0.55, 0, Math.PI * 2);
+    g.fill();
+
+    // Crisp value label
+    g.fillStyle = '#070a14';
+    g.font = `900 ${Math.max(11, Math.round(r * 0.56))}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(label, 0, 1);
+    g.restore();
+  }
+
+  function shadeColor(hex, percent) {
+    const num = parseInt(hex.replace('#',''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = Math.max(0, Math.min(255, (num >> 16) + amt));
+    const G = Math.max(0, Math.min(255, ((num >> 8) & 0x00FF) + amt));
+    const B = Math.max(0, Math.min(255, (num & 0x0000FF) + amt));
+    return '#' + (0x1000000 + R*0x10000 + G*0x100 + B).toString(16).slice(1);
+  }
+
+  function spawnParticles(x, y, color, count = 14) {
+    for (let i = 0; i < count; i++) {
+      const ang = (Math.PI * 2 * i) / count + Math.random() * 0.4;
+      const spd = 2 + Math.random() * 4.5;
+      particles.push({
+        x, y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
+        r: 2.5 + Math.random() * 3.5, color, life: 1
+      });
+    }
+  }
+
+  function addScore(pts, x, y, isMerge = false) {
+    const mult = feverActive ? 2 : Math.min(4, 1 + Math.floor(combo / 2));
+    const gained = pts * mult;
+    score += gained;
+    if (score > bestScore) {
+      bestScore = score;
+      localStorage.setItem('nexora_best', String(bestScore));
+    }
+    document.getElementById('scoreDisplay').textContent = score.toLocaleString();
+    document.getElementById('bestDisplay').textContent = bestScore.toLocaleString();
+    if (isMerge && x !== undefined) {
+      floatTexts.push({
+        x, y: y - 10,
+        text: mult > 1 ? `+${gained} x${mult}!` : `+${gained}`,
+        life: 1,
+        color: mult > 1 ? '#fbbf24' : '#f8fafc'
+      });
+    }
+  }
+
+  function pickRandomDropTier() {
+    const r = Math.random();
+    if (r < 0.45) return 0;
+    if (r < 0.78) return 1;
+    if (r < 0.94) return 2;
+    return 3;
+  }
+
+  function dropBall(x) {
+    if (gameOver || dropCooldown > 0 || activeTool) return;
+    ensureAudio();
+    const tier = currentTier;
+    const r = TIERS[tier].r;
+    const clampedX = Math.max(r + 6, Math.min(W - r - 6, x));
+    balls.push({
+      id: nextId++,
+      tier, r,
+      x: clampedX, y: DANGER_Y - 22,
+      vx: (Math.random() - 0.5) * 0.4, vy: 1.5,
+      scale: 0.75,
+      age: 0,
+      merged: false
+    });
+    playDropSound();
+    currentTier = nextTier;
+    nextTier = pickRandomDropTier();
+    drawNext();
+    dropCooldown = 0.34;
+  }
+
+  // === 6. Input Handlers (1-Tap / Drag for Mobile & Desktop) ===
+  function getCanvasPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  }
+
+  function handlePointerDown(e) {
+    if (gameOver) return;
+    ensureAudio();
+    const pos = getCanvasPos(e);
+    if (activeTool) {
+      // Find tapped ball
+      for (let i = balls.length - 1; i >= 0; i--) {
+        const b = balls[i];
+        const dx = pos.x - b.x, dy = pos.y - b.y;
+        if (dx * dx + dy * dy <= (b.r + 12) * (b.r + 12)) {
+          const pal = getPalette();
+          if (activeTool === 'hammer') {
+            spawnParticles(b.x, b.y, pal[b.tier], 20);
+            balls.splice(i, 1);
+            if (navigator.vibrate) navigator.vibrate(25);
+            clearTool();
+            return;
+          } else if (activeTool === 'upgrade') {
+            if (b.tier < TIERS.length - 1) {
+              b.tier++;
+              b.r = TIERS[b.tier].r;
+              b.scale = 1.35;
+              maxTierReached = Math.max(maxTierReached, b.tier);
+              spawnParticles(b.x, b.y, pal[b.tier], 20);
+              playMergeSound(b.tier, 2);
+              addScore(TIERS[b.tier].score, b.x, b.y, true);
+              if (navigator.vibrate) navigator.vibrate(25);
+            }
+            clearTool();
+            return;
+          }
+        }
+      }
+      return;
+    }
+    isAiming = true;
+    aimX = pos.x;
+  }
+  function handlePointerMove(e) {
+    if (!isAiming || activeTool || gameOver) return;
+    const pos = getCanvasPos(e);
+    aimX = pos.x;
+  }
+  function handlePointerUp() {
+    if (!isAiming || activeTool || gameOver) return;
+    isAiming = false;
+    dropBall(aimX);
+  }
+
+  canvas.addEventListener('pointerdown', handlePointerDown);
+  window.addEventListener('pointermove', handlePointerMove);
+  window.addEventListener('pointerup', handlePointerUp);
+
+  // === 7. Physics Step ===
+  let lastTs = performance.now();
+  function step(now) {
+    const dt = Math.min(0.033, (now - lastTs) / 1000);
+    lastTs = now;
+
+    if (!gameOver) {
+      if (dropCooldown > 0) dropCooldown -= dt;
+      if (comboTimer > 0) {
+        comboTimer -= dt;
+        if (comboTimer <= 0) combo = 0;
+      }
+      if (feverActive) {
+        fever -= dt * 14;
+        if (fever <= 0) { fever = 0; feverActive = false; }
+      } else if (fever > 0) {
+        fever = Math.max(0, fever - dt * 2.5);
+      }
+      if (shakeTime > 0) shakeTime -= dt;
+
+      // Sub-stepped physics for rock-solid stacking
+      const subSteps = 4;
+      const g = 1450 * dt / subSteps;
+      for (let s = 0; s < subSteps; s++) {
+        for (const b of balls) {
+          b.age += dt / subSteps;
+          b.scale += (1 - b.scale) * 0.18;
+          b.vy += g;
+          b.x += b.vx * (dt / subSteps) * 60;
+          b.y += b.vy * (dt / subSteps) * 60;
+
+          // Wall & floor collision
+          if (b.x - b.r < 4) { b.x = 4 + b.r; b.vx = Math.abs(b.vx) * 0.45; }
+          if (b.x + b.r > W - 4) { b.x = W - 4 - b.r; b.vx = -Math.abs(b.vx) * 0.45; }
+          if (b.y + b.r > H - 4) {
+            b.y = H - 4 - b.r;
+            b.vy = -Math.abs(b.vy) * 0.22;
+            b.vx *= 0.92;
+          }
+        }
+
+        // Ball-ball collisions & merges
+        const toRemove = new Set();
+        const toAdd = [];
+        for (let i = 0; i < balls.length; i++) {
+          const a = balls[i];
+          if (a.merged || toRemove.has(a.id)) continue;
+          for (let j = i + 1; j < balls.length; j++) {
+            const b = balls[j];
+            if (b.merged || toRemove.has(b.id)) continue;
+            const dx = b.x - a.x, dy = b.y - a.y;
+            const distSq = dx * dx + dy * dy;
+            const minDist = a.r + b.r;
+            if (distSq < minDist * minDist) {
+              // Merge check
+              if (a.tier === b.tier && a.tier < TIERS.length - 1) {
+                a.merged = true; b.merged = true;
+                toRemove.add(a.id); toRemove.add(b.id);
+                const nt = a.tier + 1;
+                const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+                toAdd.push({
+                  id: nextId++, tier: nt, r: TIERS[nt].r,
+                  x: Math.max(TIERS[nt].r + 4, Math.min(W - TIERS[nt].r - 4, mx)),
+                  y: Math.min(H - TIERS[nt].r - 4, my),
+                  vx: (a.vx + b.vx) * 0.3, vy: -1.6,
+                  scale: 1.32, age: 0.4, merged: false
+                });
+                combo++;
+                comboTimer = 1.8;
+                fever = Math.min(100, fever + 14 + combo * 3);
+                if (fever >= 100 && !feverActive) { feverActive = true; shakeTime = 0.25; }
+                maxTierReached = Math.max(maxTierReached, nt);
+                const pal = getPalette();
+                spawnParticles(mx, my, pal[nt], 16 + nt * 2);
+                playMergeSound(nt, combo);
+                addScore(TIERS[nt].score, mx, my, true);
+                if (navigator.vibrate) navigator.vibrate(12 + nt * 2);
+                break;
+              }
+              // Elastic separation
+              const dist = Math.sqrt(distSq) || 0.001;
+              const overlap = (minDist - dist) * 0.5;
+              const nx = dx / dist, ny = dy / dist;
+              a.x -= nx * overlap; a.y -= ny * overlap;
+              b.x += nx * overlap; b.y += ny * overlap;
+
+              const rvx = b.vx - a.vx, rvy = b.vy - a.vy;
+              const velAlongNormal = rvx * nx + rvy * ny;
+              if (velAlongNormal < 0) {
+                const imp = -(1 + 0.22) * velAlongNormal * 0.5;
+                a.vx -= imp * nx; a.vy -= imp * ny;
+                b.vx += imp * nx; b.vy += imp * ny;
+                a.vx *= 0.985; b.vx *= 0.985;
+              }
+            }
+          }
+        }
+        if (toRemove.size > 0) {
+          balls = balls.filter(b => !toRemove.has(b.id)).concat(toAdd);
+        }
+      }
+
+      // Danger line check (only settled balls)
+      let overDanger = false;
+      for (const b of balls) {
+        if (b.age > 1.2 && b.y - b.r < DANGER_Y) {
+          overDanger = true;
+          break;
+        }
+      }
+      if (overDanger) {
+        dangerTimer += dt;
+        if (dangerTimer > 1.45) triggerDangerEnd();
+      } else {
+        dangerTimer = Math.max(0, dangerTimer - dt * 2);
+      }
+
+      // Update Fever HUD
+      document.getElementById('feverFill').style.width = fever + '%';
+      const badge = document.getElementById('feverBadge');
+      if (feverActive) {
+        badge.textContent = '🔥 FEVER x2';
+        badge.classList.add('active');
+      } else {
+        const mult = Math.min(4, 1 + Math.floor(combo / 2));
+        badge.textContent = `COMBO x${mult}`;
+        badge.classList.remove('active');
+      }
+    }
+
+    // Particles & Floating Texts
+    particles = particles.filter(p => {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.life -= dt * 2.2;
+      return p.life > 0;
+    });
+    floatTexts = floatTexts.filter(f => {
+      f.y -= 32 * dt; f.life -= dt * 1.4;
+      return f.life > 0;
+    });
+
+    draw();
+    requestAnimationFrame(step);
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.save();
+    if (shakeTime > 0) {
+      ctx.translate((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6);
+    }
+
+    // Subtle vertical grid lines
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.05)';
+    ctx.lineWidth = 1;
+    for (let gx = 40; gx < W; gx += 40) {
+      ctx.beginPath(); ctx.moveTo(gx, DANGER_Y); ctx.lineTo(gx, H); ctx.stroke();
+    }
+
+    // Danger line
+    const dangerAlpha = dangerTimer > 0 ? (0.45 + Math.sin(performance.now() * 0.015) * 0.35) : 0.25;
+    ctx.strokeStyle = `rgba(251, 113, 133, ${dangerAlpha})`;
+    ctx.lineWidth = dangerTimer > 0 ? 2.5 : 1.5;
+    ctx.setLineDash([8, 6]);
+    ctx.beginPath(); ctx.moveTo(8, DANGER_Y); ctx.lineTo(W - 8, DANGER_Y); ctx.stroke();
+    ctx.setLineDash([]);
+
+    const pal = getPalette();
+
+    // Aim guide & preview ball
+    if (!gameOver && !activeTool && dropCooldown <= 0) {
+      const r = TIERS[currentTier].r;
+      const cx = Math.max(r + 6, Math.min(W - r - 6, aimX));
+      ctx.strokeStyle = 'rgba(34, 211, 238, 0.32)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 6]);
+      ctx.beginPath(); ctx.moveTo(cx, DANGER_Y - 10); ctx.lineTo(cx, H - 10); ctx.stroke();
+      ctx.setLineDash([]);
+      drawOrb(ctx, cx, DANGER_Y - 22, r, pal[currentTier], TIERS[currentTier].name, 1);
+    }
+
+    // Balls
+    for (const b of balls) {
+      drawOrb(ctx, b.x, b.y, b.r, pal[b.tier], TIERS[b.tier].name, b.scale);
+    }
+
+    // Particles
+    for (const p of particles) {
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Floating Combo Texts
+    for (const f of floatTexts) {
+      ctx.globalAlpha = Math.max(0, f.life);
+      ctx.fillStyle = f.color;
+      ctx.font = '900 16px -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(f.text, f.x, f.y);
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // === 8. Revive & Game Over ===
+  function triggerDangerEnd() {
+    gameOver = true;
+    if (!revivedThisRun && balls.length >= 4) {
+      showReviveModal();
+    } else {
+      showGameOverModal();
+    }
+  }
+
+  function showReviveModal() {
+    const modal = document.getElementById('reviveModal');
+    modal.classList.add('open');
+    let sec = 5;
+    document.getElementById('reviveTimer').textContent = sec;
+    clearInterval(reviveCountdownInterval);
+    reviveCountdownInterval = setInterval(() => {
+      sec--;
+      document.getElementById('reviveTimer').textContent = sec;
+      if (sec <= 0) {
+        clearInterval(reviveCountdownInterval);
+        modal.classList.remove('open');
+        showGameOverModal();
+      }
+    }, 1000);
+  }
+
+  document.getElementById('btnWatchRevive').addEventListener('click', () => {
+    clearInterval(reviveCountdownInterval);
+    document.getElementById('reviveModal').classList.remove('open');
+    window.NexoraAdBridge.showRewarded('revive', () => {
+      revivedThisRun = true;
+      // Remove top 3 highest balls safely
+      balls.sort((a, b) => a.y - b.y);
+      const removed = balls.splice(0, Math.min(3, balls.length));
+      const pal = getPalette();
+      removed.forEach(b => spawnParticles(b.x, b.y, pal[b.tier], 16));
+      dangerTimer = 0;
+      gameOver = false;
+    });
+  });
+  document.getElementById('btnSkipRevive').addEventListener('click', () => {
+    clearInterval(reviveCountdownInterval);
+    document.getElementById('reviveModal').classList.remove('open');
+    showGameOverModal();
+  });
+
+  function showGameOverModal() {
+    const earned = Math.max(5, Math.floor(score / 40));
+    coins += earned;
+    localStorage.setItem('nexora_coins', String(coins));
+    document.getElementById('coinDisplay').textContent = coins;
+    document.getElementById('finalScoreVal').textContent = score.toLocaleString();
+    document.getElementById('earnedCoinsVal').textContent = earned;
+    document.getElementById('gameOverTierText').textContent = I18N[lang].tierReached(TIERS[maxTierReached].name);
+    doubleClaimed = false;
+    document.getElementById('btnDoubleCoins').style.display = 'block';
+    document.getElementById('gameOverModal').classList.add('open');
+
+    document.getElementById('btnDoubleCoins').onclick = () => {
+      if (doubleClaimed) return;
+      window.NexoraAdBridge.showRewarded('double_coins', () => {
+        doubleClaimed = true;
+        coins += earned;
+        localStorage.setItem('nexora_coins', String(coins));
+        document.getElementById('coinDisplay').textContent = coins;
+        document.getElementById('earnedCoinsVal').textContent = earned * 2;
+        document.getElementById('btnDoubleCoins').style.display = 'none';
+      });
+    };
+  }
+
+  function resetGame() {
+    document.getElementById('gameOverModal').classList.remove('open');
+    balls = []; particles = []; floatTexts = [];
+    score = 0; maxTierReached = 0; combo = 0; fever = 0; feverActive = false;
+    dangerTimer = 0; gameOver = false; revivedThisRun = false; shakeUsedThisRun = false;
+    clearTool();
+    currentTier = 0;
+    nextTier = 1;
+    drawNext();
+    document.getElementById('scoreDisplay').textContent = '0';
+    document.getElementById('btnShake').style.opacity = '1';
+    document.querySelector('#btnShake .pwr-sub').textContent = I18N[lang].freeOnce;
+  }
+  document.getElementById('btnRestart').addEventListener('click', resetGame);
+
+  document.getElementById('btnShare').addEventListener('click', async () => {
+    const txt = `NEON DROP : MERGE — ${score.toLocaleString()} pts (${TIERS[maxTierReached].name} Core)! 🔥`;
+    if (navigator.share) {
+      try { await navigator.share({ title: 'NEON DROP : MERGE', text: txt, url: location.href }); return; } catch {}
+    }
+    try { await navigator.clipboard.writeText(txt + ' ' + location.href); } catch {}
+    alert(I18N[lang].copied);
+  });
+
+  // === 9. Powerups & Shop ===
+  function clearTool() {
+    activeTool = null;
+    document.getElementById('btnHammer').classList.remove('selected');
+    document.getElementById('btnUpgrade').classList.remove('selected');
+    document.getElementById('modeBanner').classList.remove('show');
+  }
+  function activateTool(tool, cost) {
+    if (gameOver || balls.length === 0) return;
+    if (activeTool === tool) { clearTool(); return; }
+    if (coins >= cost) {
+      coins -= cost;
+      localStorage.setItem('nexora_coins', String(coins));
+      document.getElementById('coinDisplay').textContent = coins;
+      setToolMode(tool);
+    } else {
+      window.NexoraAdBridge.showRewarded('powerup_' + tool, () => setToolMode(tool));
+    }
+  }
+  function setToolMode(tool) {
+    clearTool();
+    activeTool = tool;
+    document.getElementById(tool === 'hammer' ? 'btnHammer' : 'btnUpgrade').classList.add('selected');
+    const b = document.getElementById('modeBanner');
+    b.textContent = tool === 'hammer' ? I18N[lang].pickHammer : I18N[lang].pickUpgrade;
+    b.classList.add('show');
+  }
+
+  document.getElementById('btnHammer').addEventListener('click', () => activateTool('hammer', 60));
+  document.getElementById('btnUpgrade').addEventListener('click', () => activateTool('upgrade', 90));
+  document.getElementById('btnShake').addEventListener('click', () => {
+    if (gameOver || shakeUsedThisRun || balls.length === 0) return;
+    ensureAudio();
+    shakeUsedThisRun = true;
+    shakeTime = 0.35;
+    balls.forEach(b => {
+      b.vx += (Math.random() - 0.5) * 7;
+      b.vy -= 3.5 + Math.random() * 2;
+    });
+    if (navigator.vibrate) navigator.vibrate([20, 30, 20]);
+    document.getElementById('btnShake').style.opacity = '0.5';
+    document.querySelector('#btnShake .pwr-sub').textContent = I18N[lang].used;
+  });
+
+  function renderShop() {
+    const list = document.getElementById('skinList');
+    list.innerHTML = '';
+    SKINS.forEach(s => {
+      const owned = ownedSkins.includes(s.id);
+      const isAct = activeSkinId === s.id;
+      const row = document.createElement('div');
+      row.className = 'skin-item' + (isAct ? ' active' : '');
+      row.innerHTML = `
+        <div>
+          <div style="font-weight:800;font-size:14px">${lang === 'ko' ? s.nameKo : s.nameEn}</div>
+          <div style="display:flex;gap:4px;margin-top:4px">${s.colors.slice(0,5).map(c=>`<span style="width:12px;height:12px;border-radius:50%;background:${c};display:inline-block"></span>`).join('')}</div>
+        </div>
+        <button class="skin-btn ${owned ? '' : 'locked'}">${isAct ? I18N[lang].equipped : (owned ? I18N[lang].equip : '🪙 ' + s.cost)}</button>
+      `;
+      row.querySelector('button').onclick = () => {
+        if (owned) {
+          activeSkinId = s.id;
+          localStorage.setItem('nexora_active_skin', activeSkinId);
+          renderEvoStrip(); drawNext(); renderShop();
+        } else if (coins >= s.cost) {
+          coins -= s.cost;
+          ownedSkins.push(s.id);
+          activeSkinId = s.id;
+          localStorage.setItem('nexora_coins', String(coins));
+          localStorage.setItem('nexora_skins', JSON.stringify(ownedSkins));
+          localStorage.setItem('nexora_active_skin', activeSkinId);
+          document.getElementById('coinDisplay').textContent = coins;
+          renderEvoStrip(); drawNext(); renderShop();
+        }
+      };
+      list.appendChild(row);
+    });
+  }
+  document.getElementById('btnShop').addEventListener('click', () => { renderShop(); document.getElementById('shopModal').classList.add('open'); });
+  document.getElementById('btnCloseShop').addEventListener('click', () => document.getElementById('shopModal').classList.remove('open'));
+  document.getElementById('btnFreeCoins').addEventListener('click', () => {
+    window.NexoraAdBridge.showRewarded('shop_coins', () => {
+      coins += 100;
+      localStorage.setItem('nexora_coins', String(coins));
+      document.getElementById('coinDisplay').textContent = coins;
+      renderShop();
+    });
+  });
+
+  document.getElementById('btnSound').addEventListener('click', () => {
+    soundOn = !soundOn;
+    localStorage.setItem('nexora_sound', soundOn ? '1' : '0');
+    document.getElementById('btnSound').textContent = soundOn ? '🔊' : '🔇';
+  });
+  document.getElementById('btnLang').addEventListener('click', () => {
+    lang = lang === 'ko' ? 'en' : 'ko';
+    localStorage.setItem('nexora_game_lang', lang);
+    applyLang();
+  });
+
+  // === 10. Boot ===
+  document.getElementById('coinDisplay').textContent = coins;
+  document.getElementById('bestDisplay').textContent = bestScore.toLocaleString();
+  document.getElementById('btnSound').textContent = soundOn ? '🔊' : '🔇';
+  applyLang();
+  resize();
+  renderEvoStrip();
+  drawNext();
+  requestAnimationFrame(step);
+})();
+</script>
+</body>
+</html>
